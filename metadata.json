@@ -1,0 +1,6 @@
+{
+  "name": "Forest Cottages Kampala",
+  "description": "Premium boutique eco-hotel on Naguru Hill, Bukoto, Kampala, Uganda. Experience a hidden rainforest retreat inside the city.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
