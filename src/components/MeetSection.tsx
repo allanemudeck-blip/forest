@@ -29,6 +29,8 @@ export default function MeetSection({ preselectedEventType, setPreselectedEventT
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   // Sync state with parent override (e.g. from weddings click)
   useEffect(() => {
@@ -66,8 +68,9 @@ export default function MeetSection({ preselectedEventType, setPreselectedEventT
     setErrors((prev) => ({ ...prev, [name]: error }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError('');
     
     // Validate all fields
     const newErrors: Record<string, string> = {};
@@ -91,14 +94,37 @@ export default function MeetSection({ preselectedEventType, setPreselectedEventT
     setTouched(touchedAll);
 
     if (Object.keys(newErrors).length === 0) {
-      // Form is fully valid! Persist to localStorage for complete offline-first feedback
+      setIsSubmitting(true);
       try {
+        // Save to localStorage for robust offline backup
         const key = `proposal-${Date.now()}`;
         localStorage.setItem(key, JSON.stringify(formData));
-        setIsSubmitted(true);
+
+        // Submit to Formspree
+        const response = await fetch('https://formspree.io/f/xbdvvlrw', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify(formData),
+        });
+
+        if (response.ok) {
+          setIsSubmitted(true);
+        } else {
+          const resData = await response.json();
+          if (resData && resData.errors) {
+            setSubmitError(resData.errors.map((err: any) => err.message).join(', '));
+          } else {
+            setSubmitError('Failed to send details to Formspree. Please try again.');
+          }
+        }
       } catch (err) {
-        console.error('Error saving proposal to localStorage', err);
-        setIsSubmitted(true);
+        console.error('Error submitting form to Formspree', err);
+        setSubmitError('A network error occurred. Please check your connection and try again.');
+      } finally {
+        setIsSubmitting(false);
       }
     }
   };
@@ -116,6 +142,7 @@ export default function MeetSection({ preselectedEventType, setPreselectedEventT
     setErrors({});
     setTouched({});
     setIsSubmitted(false);
+    setSubmitError('');
     setPreselectedEventType('business');
   };
 
@@ -383,12 +410,21 @@ export default function MeetSection({ preselectedEventType, setPreselectedEventT
                   />
                 </div>
 
+                {submitError && (
+                  <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-600 font-sans text-xs rounded-sm">
+                    {submitError}
+                  </div>
+                )}
+
                 <button
                   type="submit"
                   id="proposal-submit-btn"
-                  className="w-full py-4 bg-accent hover:bg-accent/90 text-primary-text font-sans text-xs tracking-widest uppercase font-black rounded-sm shadow-md transition-all duration-300 btn-glow cursor-pointer"
+                  disabled={isSubmitting}
+                  className={`w-full py-4 bg-accent hover:bg-accent/90 text-primary-text font-sans text-xs tracking-widest uppercase font-black rounded-sm shadow-md transition-all duration-300 btn-glow cursor-pointer ${
+                    isSubmitting ? 'opacity-75 cursor-not-allowed' : ''
+                  }`}
                 >
-                  Request Proposal
+                  {isSubmitting ? 'Sending Proposal...' : 'Request Proposal'}
                 </button>
               </form>
             ) : (
